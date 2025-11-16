@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Birthday Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #232526, #414345);
+      color: #fff;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .quiz,
+    .gift-game,
+    .success {
+      display: none;
+    }
+
+    .active {
+      display: block;
+    }
+
+    input,
+    button {
+      padding: 10px;
+      margin: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    .gifts {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .gift {
+      width: 80px;
+      height: 80px;
+      background: pink;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+
+    .gift:hover {
+      transform: scale(1.1);
+    }
+
+    .hidden-msg {
+      display: none;
+      font-size: 20px;
+      margin-top: 20px;
+    }
+
+    #answersDisplay {
+      margin-top: 20px;
+      white-space: pre-line;
+      background: #333;
+      padding: 15px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🎉 Let's Play Before the Surprise!</h1>
+
+  <div class="quiz active">
+    <p>1. What is your nickname ?</p>
+    <input type="text" id="q0" placeholder="Enter...">
+
+    <p>1. What is Your favorite food?</p>
+    <input type="text" id="q1" placeholder="Type here...">
+
+    <p>2. What is your favorite movie?</p>
+    <input type="text" id="q2" placeholder="Any guess...">
+
+    <p>3. What is your Favourate Hobby?</p>
+    <input type="text" id="q3" placeholder="Answer">
+
+    <br><button onclick="checkQuiz()">Submit Answers</button>
+    <p id="quizResult"></p>
+  </div>
+
+  <div class="gift-game">
+    <h2> 🎁 Find the real birthday surprise!</h2>
+    <div class="gifts" id="giftsContainer"></div>
+    <p class="hidden-msg" id="giftResult"></p>
+  </div>
+
+  <div class="success">
+    <h2>🎉 You found it!</h2>
+    <p>Here are your answers, Nishu:</p>
+    <div id="answersDisplay"></div>
+    <button onclick="downloadAnswers()">📥 Download Answers</button>
+    <p>Redirecting to your Surprise in 10 seconds...</p>
+  </div>
+
+  <script>
+    let userAnswers = {};
+    let bin_id;
+    const api_key = "$2a$10$5emsqOUJdWbQWTewHQRGveOzfAJtnrjFRGBQtldQBvnmxjoL2HuIi";
+
+    function checkQuiz() {
+      const q0 = document.getElementById("q0").value.trim();
+      const q1 = document.getElementById("q1").value.trim();
+      const q2 = document.getElementById("q2").value.trim();
+      const q3 = document.getElementById("q3").value.trim();
+
+      if (q1 && q2 && q3) {
+        userAnswers = {
+          "nickname": q0,
+          "Favorite food": q1,
+          "Favorite movie": q2,
+          "Favourate hobby": q3,
+          "guessed_in": 0
+        };
+
+        let http_req = new XMLHttpRequest();
+        http_req.open("POST", "https://api.jsonbin.io/v3/b");
+        http_req.setRequestHeader("Content-Type", "application/json");
+        http_req.setRequestHeader("X-Master-Key", api_key);
+        http_req.onload = () => {
+          try {
+            let data_ = JSON.parse(http_req.responseText);
+            bin_id = data_["metadata"]["id"];
+            document.querySelector(".quiz").classList.remove("active");
+            startGiftGame();
+          }
+          catch (e) {
+            alert("Cannot submit response! Error : " + e);
+          }
+        }
+        http_req.send(JSON.stringify(userAnswers));
+      }
+      else {
+        document.getElementById("quizResult").textContent = "Please fill all questions ❤️";
+      }
+    }
+
+    function startGiftGame() {
+      document.querySelector(".gift-game").classList.add("active");
+      const giftsContainer = document.getElementById("giftsContainer");
+      const correctGift = Math.floor(Math.random() * 6);
+
+      for (let i = 0; i < 6; i++) {
+        const gift = document.createElement("div");
+        gift.className = "gift";
+        gift.textContent = "🎁";
+        gift.onclick = () => {
+          if (i === correctGift) {
+            document.getElementById("giftResult").textContent = "Yay! You found the surprise!";
+            document.getElementById("giftResult").style.display = "block";
+            setTimeout(() => {
+              let http_req = new XMLHttpRequest();
+              http_req.open("PUT", `https://api.jsonbin.io/v3/b/${bin_id}`);
+              http_req.setRequestHeader("Content-Type", "application/json");
+              http_req.setRequestHeader("X-Master-Key", api_key);
+              http_req.onload = () => {
+                try {
+                  let data_ = JSON.parse(http_req.responseText);
+                  document.querySelector(".gift-game").classList.remove("active");
+                  showAnswers();
+                }
+                catch (e) {
+                  alert("Cannot submit response! Error : " + e);
+                }
+              }
+              http_req.send(JSON.stringify(userAnswers));
+            }, 1000);
+          } else {
+            userAnswers["guessed_in"] += 1;
+            document.getElementById("giftResult").textContent = "Nope! Try another gift 🎁";
+            document.getElementById("giftResult").style.display = "block";
+          }
+        };
+        giftsContainer.appendChild(gift);
+      }
+    }
+
+    function showAnswers() {
+      const display = document.getElementById("answersDisplay");
+      let text = '';
+      for (const [q, a] of Object.entries(userAnswers)) {
+        text += `${q}: ${a}\n`;
+      }
+      display.textContent = text;
+      document.querySelector(".success").classList.add("active");
+
+      setTimeout(() => {
+        window.location.href = "index2.html"; // change to your actual birthday page
+      }, 10000);
+    }
+
+    function downloadAnswers() {
+      const text = Object.entries(userAnswers).map(([q, a]) => `${q}: ${a}`).join("\n");
+      const blob = new Blob([text], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "nishu_answers.txt";
+      a.click();
+    }
+  </script>
+
+</body>
+
+</html>
